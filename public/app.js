@@ -6,7 +6,7 @@
 
   /* ================= 常量与工具 ================= */
 
-  var VIEW_IDS = ['overview', 'reservoirs', 'water', 'orders', 'balance'];
+  var VIEW_IDS = ['overview', 'reservoirs', 'water', 'orders', 'balance', 'forecast'];
   var ORDER_STATUSES = ['已下达', '执行中', '已完成', '已撤销'];
   var RESERVOIR_STATUSES = ['运行', '检修'];
 
@@ -128,6 +128,7 @@
     flows: { inflow: [], release: [] },
     orders: [],
     balance: null,
+    forecast: { result: null, whatif: null, kind: 'day', recheckText: '' },
     expanded: { reservoir: '', level: '', flow: '', order: '' },
     reservoirDetail: null,
     curveDraft: null,
@@ -137,7 +138,8 @@
       reservoirs: { basin: '', status: '', keyword: '' },
       water: { reservoirId: '', from: '', to: '' },
       orders: { reservoirId: '', status: '' },
-      balance: { reservoirId: '', from: '2026-05-01', to: '2026-05-10' }
+      balance: { reservoirId: '', from: '2026-05-01', to: '2026-05-10' },
+      forecast: { reservoirId: '', from: '', to: '', top: 5 }
     }
   };
 
@@ -224,6 +226,7 @@
       panel.classList.toggle('is-active', panel.dataset.view === view);
     });
     renderSidebar();
+    if (view === 'forecast' && !state.forecast.result) runForecast();
   }
 
   async function reloadView(view) {
@@ -245,6 +248,8 @@
         renderOrders();
       } else if (view === 'balance') {
         renderBalance();
+      } else if (view === 'forecast') {
+        await runForecast();
       }
     } catch (err) {
       showError(err);
@@ -372,6 +377,20 @@
       html.push('<li>每天损失 ' + esc(dash(state.settings ? state.settings.lossPerDayWan : '')) + ' 万m³</li>');
       html.push('<li>容差 ' + esc(dash(state.settings ? state.settings.balanceToleranceWan : '')) + ' 万m³</li>');
       html.push('<li>汛期 ' + esc(dash(state.settings ? state.settings.floodSeasonStart + ' 至 ' + state.settings.floodSeasonEnd : '')) + '</li>');
+      html.push('</ul></div>');
+    } else if (view === 'forecast') {
+      html.push('<div class="side-block"><h3>对照口径</h3><ul class="side-list">');
+      html.push('<li>预报与实测按 水库+日期 配对</li>');
+      html.push('<li>绝对偏差 = 预报 − 实测</li>');
+      html.push('<li>按量加权偏差按实测水量加权</li>');
+      html.push('<li>旬：1–10 上旬、11–20 中旬、21 起下旬</li>');
+      html.push('<li>所有数字取接口字段</li>');
+      html.push('</ul></div>');
+      html.push('<div class="side-block"><h3>当前判定范围</h3><ul class="side-list">');
+      html.push('<li>允许相对偏差 ' + esc(dash(state.settings ? state.settings.forecastTolerancePct : '')) + ' %</li>');
+      html.push('<li>允许绝对偏差 ' + esc(dash(state.settings ? state.settings.forecastToleranceFlow : '')) + ' m³/s</li>');
+      html.push('<li>合格命中率 ' + esc(dash(state.settings ? state.settings.forecastPassPct : '')) + ' %</li>');
+      html.push('<li>改动判定范围用页面上的「判定范围与试算」</li>');
       html.push('</ul></div>');
     }
 
@@ -827,6 +846,294 @@
       + '</ul>';
   }
 
+  /* ================= 预报对照 ================= */
+
+  function forecastQuery() {
+    var f = state.filters.forecast;
+    return queryString({ reservoirId: f.reservoirId, from: f.from, to: f.to, top: f.top });
+  }
+
+  function ruleInputValues() {
+    return {
+      tolerancePct: el('ruleTolerancePct') ? el('ruleTolerancePct').value : '',
+      toleranceFlow: el('ruleToleranceFlow') ? el('ruleToleranceFlow').value : '',
+      passPct: el('rulePassPct') ? el('rulePassPct').value : ''
+    };
+  }
+
+  async function runForecast() {
+    try {
+      state.forecast.result = await api('GET', '/api/forecast/eval' + forecastQuery());
+      state.forecast.recheckText = '';
+      renderForecast();
+    } catch (err) {
+      showError(err, el('forecastFormError'));
+    }
+  }
+
+  function renderForecast() {
+    renderForecastForm();
+    renderForecastResult();
+    renderForecastWhatif();
+    renderForecastTable();
+    renderForecastTop();
+  }
+
+  /* 条件表单与判定范围输入只在第一次渲染时填默认值，之后以用户输入为准 */
+  function renderForecastForm() {
+    var sel = el('forecastReservoir');
+    if (sel && !sel.dataset.filled) {
+      sel.innerHTML = reservoirOptions(state.filters.forecast.reservoirId);
+      sel.dataset.filled = '1';
+    }
+    var top = el('forecastTop');
+    if (top && !top.dataset.filled) {
+      top.value = String(state.filters.forecast.top || 5);
+      top.dataset.filled = '1';
+    }
+    var s = state.settings || {};
+    [['ruleTolerancePct', s.forecastTolerancePct], ['ruleToleranceFlow', s.forecastToleranceFlow], ['rulePassPct', s.forecastPassPct]].forEach(function (pair) {
+      var node = el(pair[0]);
+      if (node && node.value === '' && pair[1] !== undefined && pair[1] !== null) node.value = pair[1];
+    });
+  }
+
+  function renderForecastResult() {
+    var box = el('forecastResult');
+    var r = state.forecast.result;
+    if (!r) {
+      box.innerHTML = '<p class="empty">先选水库与时段，再点「评估」。</p>';
+      return;
+    }
+    var s = r.daily.stats;
+    var html = '<h4>评估口径（判定参数取接口 rules 字段，随设置联动）</h4>'
+      + '<ul class="caliber">' + r.caliber.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join('') + '</ul>'
+      + '<h4>评估统计 <span class="card-sub">水库：' + esc(r.query.reservoirName) + '；时段：' + esc(r.query.from || '最早') + ' 至 ' + esc(r.query.to || '最晚') + '</span></h4>'
+      + '<div class="result-grid">'
+      + resultItem('配对天数', s.days + ' 天（缺预报 ' + s.forecastOnlyDays + '、缺实测 ' + s.actualOnlyDays + '）')
+      + resultItem('预报偏大', s.overDays + ' 天（' + dash(s.overPct) + '%）')
+      + resultItem('预报偏小', s.underDays + ' 天（' + dash(s.underPct) + '%）')
+      + resultItem('平均绝对相对偏差', dash(s.meanAbsRelPct) + '%')
+      + resultItem('按量加权相对偏差', dash(s.weightedAbsRelPct) + '%')
+      + resultItem('命中 / 未命中', s.hitDays + ' / ' + s.missDays + ' 天')
+      + resultItem('命中率', dash(s.hitRatePct) + '%（合格线 ' + s.passPct + '%）')
+      + resultItem('结论', s.conclusion, s.pass === false)
+      + '</div>'
+      + '<div class="inline-form">'
+      + '<span class="side-note">内容指纹 <code>' + esc(r.checksum) + '</code>（对评估结果整体算的 SHA-1）</span>'
+      + '<button type="button" class="btn btn-sm" data-action="forecast-recheck">再评一次核对</button>'
+      + '<span class="side-note" id="forecastRecheck">' + esc(state.forecast.recheckText) + '</span>'
+      + '</div>';
+    box.innerHTML = html;
+  }
+
+  function renderForecastWhatif() {
+    var box = el('forecastWhatif');
+    var w = state.forecast.whatif;
+    if (!w) {
+      box.innerHTML = '';
+      return;
+    }
+    var b = w.before.daily.stats;
+    var a = w.after.daily.stats;
+    function ruleText(rules) {
+      return '允许相对偏差 ' + rules.forecastTolerancePct + '%、允许绝对偏差 ' + rules.forecastToleranceFlow + ' m³/s、合格线 ' + rules.forecastPassPct + '%';
+    }
+    var html = '<h4>改动前后对照 <span class="card-sub">同一批数据、同一查询条件，只改判定范围</span></h4>'
+      + '<div class="table-wrap"><table class="table"><thead><tr><th>指标</th><th>改动前</th><th>改动后</th></tr></thead><tbody>'
+      + '<tr><td>判定规则</td><td>' + esc(ruleText(w.before.rules)) + '</td><td>' + esc(ruleText(w.after.rules)) + '</td></tr>'
+      + '<tr><td>命中天数</td><td class="num">' + b.hitDays + ' / ' + b.days + '</td><td class="num">' + a.hitDays + ' / ' + a.days + '</td></tr>'
+      + '<tr><td>命中率</td><td class="num">' + dash(b.hitRatePct) + '%</td><td class="num">' + dash(a.hitRatePct) + '%</td></tr>'
+      + '<tr><td>结论</td><td>' + esc(b.conclusion) + '</td><td>' + esc(a.conclusion) + '</td></tr>'
+      + '</tbody></table></div>';
+    var flips = w.changes.daily;
+    html += '<h4>判定翻转 <span class="card-sub">日 ' + flips.length + ' 天；旬 ' + w.changes.xun.length + ' 个；月 ' + w.changes.month.length + ' 个</span></h4>';
+    if (flips.length) {
+      html += '<ul class="caliber">' + flips.map(function (f) {
+        return '<li>' + esc(f.key) + '：' + esc(f.from) + ' → ' + esc(f.to) + '</li>';
+      }).join('') + '</ul>';
+    } else {
+      html += '<p class="empty">日口径判定没有翻转。</p>';
+    }
+    box.innerHTML = html;
+  }
+
+  function hitTag(hit) {
+    if (hit === true) return '<span class="tag is-ok">命中</span>';
+    if (hit === false) return '<span class="tag is-over">未命中</span>';
+    return '<span class="tag">—</span>';
+  }
+
+  function signed(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    var n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    return (n > 0 ? '+' : '') + n;
+  }
+
+  function renderForecastTable() {
+    var r = state.forecast.result;
+    var head = el('forecastTableHead');
+    var tbody = el('forecastRows');
+    var statsBox = el('forecastPeriodStats');
+    if (!r) {
+      head.innerHTML = '';
+      tbody.innerHTML = emptyRow(1, '先评估再出对照表。');
+      statsBox.innerHTML = '';
+      return;
+    }
+    var kind = state.forecast.kind;
+    if (kind === 'day') {
+      head.innerHTML = '<tr><th>日期</th><th class="num">预报（m³/s）</th><th class="num">实测（m³/s）</th><th class="num">绝对偏差（m³/s）</th><th class="num">相对偏差（%）</th><th class="num">实测水量权重（万m³）</th><th class="num">加权绝对偏差（万m³）</th><th>判定</th><th>备注</th></tr>';
+      tbody.innerHTML = r.daily.rows.length ? r.daily.rows.map(function (row) {
+        return '<tr>'
+          + '<td>' + esc(row.date) + '</td>'
+          + '<td class="num">' + esc(row.hasForecast ? numText(row.forecast) : '—') + '</td>'
+          + '<td class="num">' + esc(row.hasActual ? numText(row.actual) : '—') + '</td>'
+          + '<td class="num">' + esc(signed(row.absDev)) + '</td>'
+          + '<td class="num">' + esc(signed(row.relDevPct)) + '</td>'
+          + '<td class="num">' + esc(numText(row.weightWan)) + '</td>'
+          + '<td class="num">' + esc(numText(row.weightedAbsDevWan)) + '</td>'
+          + '<td>' + hitTag(row.hit) + '</td>'
+          + '<td>' + esc(dash(row.note)) + '</td>'
+          + '</tr>';
+      }).join('') : emptyRow(9, '这个时段没有入库记录。');
+      statsBox.innerHTML = '';
+    } else {
+      var block = kind === 'xun' ? r.xun : r.month;
+      var unit = kind === 'xun' ? '旬' : '月';
+      head.innerHTML = '<tr><th>' + unit + '</th><th class="num">覆盖天数</th><th class="num">对照天数</th><th class="num">预报水量（万m³）</th><th class="num">实测水量（万m³）</th><th class="num">绝对偏差（万m³）</th><th class="num">相对偏差（%）</th><th class="num">按量加权相对偏差（%）</th><th>判定</th></tr>';
+      tbody.innerHTML = block.rows.length ? block.rows.map(function (row) {
+        return '<tr>'
+          + '<td>' + esc(row.label) + '</td>'
+          + '<td class="num">' + row.days + '</td>'
+          + '<td class="num">' + row.pairedDays + '</td>'
+          + '<td class="num">' + esc(numText(row.forecastWan)) + '</td>'
+          + '<td class="num">' + esc(numText(row.actualWan)) + '</td>'
+          + '<td class="num">' + esc(signed(row.absDevWan)) + '</td>'
+          + '<td class="num">' + esc(signed(row.relDevPct)) + '</td>'
+          + '<td class="num">' + esc(numText(row.weightedAbsRelPct)) + '</td>'
+          + '<td>' + hitTag(row.hit) + '</td>'
+          + '</tr>';
+      }).join('') : emptyRow(9, '这个时段没有可对照的' + unit + '。');
+      var s = block.stats;
+      statsBox.innerHTML = '<p class="side-note">按' + unit + '口径：共 ' + s.periods + ' 个' + unit + '（对照 ' + s.pairedDays + ' 天）；'
+        + '偏大 ' + s.overPeriods + ' 个（' + dash(s.overPct) + '%）、偏小 ' + s.underPeriods + ' 个（' + dash(s.underPct) + '%）；'
+        + '平均绝对相对偏差 ' + dash(s.meanAbsRelPct) + '%、按量加权相对偏差 ' + dash(s.weightedAbsRelPct) + '%；'
+        + '命中 ' + s.hitPeriods + ' 个、命中率 ' + dash(s.hitRatePct) + '%；结论：' + esc(s.conclusion) + '</p>';
+    }
+  }
+
+  function renderForecastTop() {
+    var r = state.forecast.result;
+    var tbody = el('forecastTopRows');
+    if (!r) {
+      tbody.innerHTML = emptyRow(7, '先评估再出排名。');
+      return;
+    }
+    tbody.innerHTML = r.topDays.length ? r.topDays.map(function (row) {
+      return '<tr>'
+        + '<td>' + row.rank + '</td>'
+        + '<td>' + esc(row.date) + '</td>'
+        + '<td class="num">' + esc(numText(row.forecast)) + '</td>'
+        + '<td class="num">' + esc(numText(row.actual)) + '</td>'
+        + '<td class="num">' + esc(signed(row.absDev)) + '</td>'
+        + '<td class="num">' + esc(signed(row.relDevPct)) + '</td>'
+        + '<td>' + hitTag(row.hit) + '</td>'
+        + '</tr>';
+    }).join('') : emptyRow(7, '没有预报与实测都有的天。');
+  }
+
+  async function submitForecast(form) {
+    var errorBox = el('forecastFormError');
+    clearFormError(errorBox);
+    var values = formValues(form);
+    state.filters.forecast = {
+      reservoirId: values.reservoirId || '',
+      from: values.from || '',
+      to: values.to || '',
+      top: Number(values.top) || 5
+    };
+    state.forecast.whatif = null;
+    await runForecast();
+  }
+
+  async function submitForecastEntry(form) {
+    var errorBox = el('forecastEntryError');
+    clearFormError(errorBox);
+    var values = formValues(form);
+    try {
+      var result = await api('POST', '/api/flows', {
+        kind: 'inflow',
+        reservoirId: values.reservoirId,
+        date: values.date,
+        flow: Number(values.flow),
+        type: '预报',
+        operator: values.operator,
+        remark: values.remark
+      });
+      toast(result && result.updated ? '当天预报已覆盖更新' : '预报已登记');
+      await runForecast();
+    } catch (err) {
+      showError(err, errorBox);
+    }
+  }
+
+  /* 试算与保存共用的查询串：评估条件 + 页面上的判定范围 */
+  function whatifQuery() {
+    var f = state.filters.forecast;
+    var rules = ruleInputValues();
+    return queryString({
+      reservoirId: f.reservoirId,
+      from: f.from,
+      to: f.to,
+      top: f.top,
+      tolerancePct: rules.tolerancePct,
+      toleranceFlow: rules.toleranceFlow,
+      passPct: rules.passPct
+    });
+  }
+
+  async function runWhatif() {
+    var errorBox = el('forecastRuleError');
+    clearFormError(errorBox);
+    if (!state.forecast.result) {
+      showNotice('先点「评估」出结果，再试算', true);
+      return;
+    }
+    try {
+      state.forecast.whatif = await api('GET', '/api/forecast/whatif' + whatifQuery());
+      renderForecastWhatif();
+      toast('试算完成，改动前后对照已出');
+    } catch (err) {
+      showError(err, errorBox);
+    }
+  }
+
+  /* 保存判定范围：先按新范围试算留底（改动前后对照），再写设置并按新范围重评 */
+  async function saveForecastRules() {
+    var errorBox = el('forecastRuleError');
+    clearFormError(errorBox);
+    if (!state.forecast.result) {
+      showNotice('先点「评估」出结果，再保存判定范围', true);
+      return;
+    }
+    var rules = ruleInputValues();
+    try {
+      state.forecast.whatif = await api('GET', '/api/forecast/whatif' + whatifQuery());
+      state.settings = await api('PATCH', '/api/settings', {
+        forecastTolerancePct: Number(rules.tolerancePct),
+        forecastToleranceFlow: Number(rules.toleranceFlow),
+        forecastPassPct: Number(rules.passPct)
+      });
+      toast('判定范围已保存，结论已按新范围重评');
+      await runForecast();
+      renderSidebar();
+    } catch (err) {
+      showError(err, errorBox);
+    }
+  }
+
   /* ================= 设置弹层 ================= */
 
   function openSettingsModal() {
@@ -839,6 +1146,9 @@
       + '<label class="field"><span>平衡容差（万m³）</span><input type="number" step="0.01" name="balanceToleranceWan" value="' + esc(s.balanceToleranceWan) + '" /><em class="field-msg" data-field-error="balanceToleranceWan" hidden></em></label>'
       + '<label class="field"><span>入库注意流量（m³/s）</span><input type="number" step="0.01" name="inflowAttentionFlow" value="' + esc(s.inflowAttentionFlow) + '" /><em class="field-msg" data-field-error="inflowAttentionFlow" hidden></em></label>'
       + '<label class="field"><span>入库严重流量（m³/s）</span><input type="number" step="0.01" name="inflowSeriousFlow" value="' + esc(s.inflowSeriousFlow) + '" /><em class="field-msg" data-field-error="inflowSeriousFlow" hidden></em></label>'
+      + '<label class="field"><span>预报允许相对偏差（%）</span><input type="number" step="0.1" name="forecastTolerancePct" value="' + esc(s.forecastTolerancePct) + '" /><em class="field-msg" data-field-error="forecastTolerancePct" hidden></em></label>'
+      + '<label class="field"><span>预报允许绝对偏差（m³/s）</span><input type="number" step="0.1" name="forecastToleranceFlow" value="' + esc(s.forecastToleranceFlow) + '" /><em class="field-msg" data-field-error="forecastToleranceFlow" hidden></em></label>'
+      + '<label class="field"><span>预报合格命中率（%）</span><input type="number" step="0.1" name="forecastPassPct" value="' + esc(s.forecastPassPct) + '" /><em class="field-msg" data-field-error="forecastPassPct" hidden></em></label>'
       + '</div>'
       + '<p class="side-note">水量单位 ' + esc(dash(s.volumeUnit)) + '，流量单位 ' + esc(dash(s.flowUnit)) + '，水位精度 ' + esc(dash(s.levelPrecision)) + '。保存后限水位与是否超限会按新汛期重新取接口值。</p>';
     el('modalFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-action="close-modal">取消</button>'
@@ -860,7 +1170,7 @@
       var input = qs('[name="' + key + '"]');
       if (input) body[key] = input.value.trim();
     });
-    ['lossPerDayWan', 'balanceToleranceWan', 'inflowAttentionFlow', 'inflowSeriousFlow'].forEach(function (key) {
+    ['lossPerDayWan', 'balanceToleranceWan', 'inflowAttentionFlow', 'inflowSeriousFlow', 'forecastTolerancePct', 'forecastToleranceFlow', 'forecastPassPct'].forEach(function (key) {
       var input = qs('[name="' + key + '"]');
       if (input) body[key] = Number(input.value);
     });
@@ -876,6 +1186,7 @@
       renderOverview();
       renderWater();
       renderBalance();
+      if (state.forecast.result) await runForecast();
     } catch (err) {
       showError(err, el('modalError'));
     }
@@ -1057,6 +1368,28 @@
       return;
     }
     if (action === 'switch-water') { setWaterKind(btn.dataset.kind); return; }
+    if (action === 'switch-forecast') {
+      state.forecast.kind = btn.dataset.kind;
+      qsa('#forecastSubtabs .subtab').forEach(function (node) {
+        node.classList.toggle('is-active', node.dataset.kind === btn.dataset.kind);
+      });
+      renderForecastTable();
+      return;
+    }
+    if (action === 'forecast-recheck') {
+      try {
+        var again = await api('GET', '/api/forecast/eval' + forecastQuery());
+        var same = state.forecast.result && again.checksum === state.forecast.result.checksum;
+        state.forecast.recheckText = same
+          ? '两次评估结果一致（指纹同为 ' + again.checksum.slice(0, 12) + '…）'
+          : '两次评估结果不一致，请核对数据是否被改动';
+        state.forecast.result = again;
+        renderForecast();
+      } catch (err) { showError(err); }
+      return;
+    }
+    if (action === 'forecast-whatif') { await runWhatif(); return; }
+    if (action === 'forecast-save-rules') { await saveForecastRules(); return; }
 
     if (action === 'toggle-reservoir') { await toggleReservoir(btn.dataset.reservoirId); return; }
     if (action === 'toggle-level') { toggleRow('level', btn.dataset.id); renderWater(); return; }
@@ -1269,13 +1602,15 @@
     el('releaseForm').addEventListener('submit', function (event) { event.preventDefault(); submitFlow(event.target, 'release'); });
     el('orderForm').addEventListener('submit', function (event) { event.preventDefault(); submitOrder(event.target); });
     el('balanceForm').addEventListener('submit', function (event) { event.preventDefault(); submitBalance(event.target); });
+    el('forecastForm').addEventListener('submit', function (event) { event.preventDefault(); submitForecast(event.target); });
+    el('forecastEntryForm').addEventListener('submit', function (event) { event.preventDefault(); submitForecastEntry(event.target); });
   }
 
   /* ================= 下拉与默认值 ================= */
 
   function fillReservoirSelects() {
     var list = state.reservoirs || [];
-    ['levelFormReservoir', 'inflowFormReservoir', 'releaseFormReservoir', 'orderFormReservoir', 'balanceReservoir'].forEach(function (id) {
+    ['levelFormReservoir', 'inflowFormReservoir', 'releaseFormReservoir', 'orderFormReservoir', 'balanceReservoir', 'forecastReservoir', 'forecastEntryReservoir'].forEach(function (id) {
       var node = el(id);
       if (!node) return;
       var current = node.value;
@@ -1305,6 +1640,20 @@
     if (balanceFrom && !balanceFrom.value) balanceFrom.value = state.filters.balance.from;
     var balanceTo = el('balanceTo');
     if (balanceTo && !balanceTo.value) balanceTo.value = state.filters.balance.to;
+
+    var forecastEntryDate = el('forecastEntryDate');
+    if (forecastEntryDate && !forecastEntryDate.value) forecastEntryDate.value = todayIso();
+    if (!state.filters.forecast.from || !state.filters.forecast.to) {
+      var dates = (state.flows.inflow || []).map(function (r) { return r.date; }).sort();
+      if (dates.length) {
+        state.filters.forecast.from = dates[0];
+        state.filters.forecast.to = dates[dates.length - 1];
+      }
+    }
+    var forecastFrom = el('forecastFrom');
+    if (forecastFrom && !forecastFrom.value) forecastFrom.value = state.filters.forecast.from;
+    var forecastTo = el('forecastTo');
+    if (forecastTo && !forecastTo.value) forecastTo.value = state.filters.forecast.to;
   }
 
   /* ================= 启动 ================= */

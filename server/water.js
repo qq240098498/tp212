@@ -90,7 +90,9 @@ function balance(data, reservoirId, fromDate, toDate) {
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const days = store.daysBetween(fromDate, toDate);
 
-  const inflowRows = data.inflows.filter((r) => r.reservoirId === reservoirId && r.date >= fromDate && r.date < toDate);
+  const inflowRows = data.inflows.filter(
+    (r) => r.reservoirId === reservoirId && r.date >= fromDate && r.date < toDate && String(r.type || '实测') !== '预报'
+  );
   const releaseRows = data.releases.filter((r) => r.reservoirId === reservoirId && r.date >= fromDate && r.date < toDate);
   const meanInflow = store.round(inflowRows.reduce((s, r) => s + Number(r.flow), 0) / Math.max(1, inflowRows.length), 3);
   const meanRelease = store.round(releaseRows.reduce((s, r) => s + Number(r.flow), 0) / Math.max(1, releaseRows.length), 3);

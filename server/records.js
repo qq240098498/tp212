@@ -15,7 +15,7 @@ function listLevels(data, query) {
       const reservoir = data.reservoirs.find((r) => r.id === l.reservoirId);
       const check = reservoir ? water.levelCheck(reservoir, l.level, l.date, data.settings) : null;
       const inflow = data.inflows
-        .filter((x) => x.reservoirId === l.reservoirId && x.date === l.date)
+        .filter((x) => x.reservoirId === l.reservoirId && x.date === l.date && String(x.type || '实测') !== '预报')
         .reduce((s, x) => s + Number(x.flow), 0);
       const warning = reservoir ? water.warningOf(reservoir, l.level, inflow, data.settings) : null;
       return Object.assign({}, l, {
@@ -90,12 +90,23 @@ function saveFlow(data, kind, payload) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError(400, 'VALIDATION_FAILED', '日期要按 年-月-日 填', { date: '日期格式不对' });
   if (!Number.isFinite(flow) || flow < 0) throw new AppError(400, 'VALIDATION_FAILED', '流量要填非负数字', { flow: '流量不对' });
   const list = kind === 'inflow' ? data.inflows : data.releases;
+  const type = kind === 'inflow' ? String(payload.type || '实测') : String(payload.type || '发电');
+  // 预报入库同库同日只留一条：重复登记直接覆盖，保证对照时一天只有一个预报值
+  if (kind === 'inflow' && type === '预报') {
+    const existing = list.find((r) => r.reservoirId === reservoir.id && r.date === date && String(r.type || '实测') === '预报');
+    if (existing) {
+      existing.flow = flow;
+      existing.operator = String(payload.operator || '').trim();
+      existing.remark = String(payload.remark || '');
+      return Object.assign({ updated: true }, existing);
+    }
+  }
   const record = {
     id: store.nextId(kind === 'inflow' ? 'in' : 'out', list),
     reservoirId: reservoir.id,
     date,
     flow,
-    type: kind === 'inflow' ? String(payload.type || '实测') : String(payload.type || '发电'),
+    type,
     operator: String(payload.operator || '').trim(),
     remark: String(payload.remark || ''),
   };

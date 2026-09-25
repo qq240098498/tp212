@@ -10,12 +10,12 @@ function overview(data) {
     const own = data.levels.filter((l) => l.reservoirId === r.id).sort((a, b) => (a.date < b.date ? 1 : -1));
     const latest = own[0];
     const latestInflowDate = data.inflows
-      .filter((x) => x.reservoirId === r.id)
+      .filter((x) => x.reservoirId === r.id && String(x.type || '实测') !== '预报')
       .map((x) => x.date)
       .sort()
       .slice(-1)[0];
     const inflow = data.inflows
-      .filter((x) => x.reservoirId === r.id && x.date === (latestInflowDate || ''))
+      .filter((x) => x.reservoirId === r.id && x.date === (latestInflowDate || '') && String(x.type || '实测') !== '预报')
       .reduce((s, x) => s + Number(x.flow), 0);
     const check = latest ? water.levelCheck(r, latest.level, latest.date, settings) : null;
     const warning = latest ? water.warningOf(r, latest.level, inflow, settings) : null;

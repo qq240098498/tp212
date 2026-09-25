@@ -8,7 +8,10 @@
     "lossPerDayWan": 1.2,
     "levelPrecision": 0.01,
     "inflowAttentionFlow": 120,
-    "inflowSeriousFlow": 260
+    "inflowSeriousFlow": 260,
+    "forecastTolerancePct": 20,
+    "forecastToleranceFlow": 10,
+    "forecastPassPct": 80
   },
   "reservoirs": [
     {
@@ -1226,6 +1229,519 @@
       "flow": 42,
       "type": "实测",
       "operator": "值班员",
+      "remark": ""
+    },
+    {
+      "id": "in-0058",
+      "reservoirId": "res-0001",
+      "date": "2026-05-01",
+      "flow": 62,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0059",
+      "reservoirId": "res-0002",
+      "date": "2026-05-01",
+      "flow": 39.9,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0060",
+      "reservoirId": "res-0001",
+      "date": "2026-05-02",
+      "flow": 68,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0061",
+      "reservoirId": "res-0002",
+      "date": "2026-05-02",
+      "flow": 37.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0062",
+      "reservoirId": "res-0001",
+      "date": "2026-05-03",
+      "flow": 62.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0063",
+      "reservoirId": "res-0002",
+      "date": "2026-05-03",
+      "flow": 54.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0064",
+      "reservoirId": "res-0001",
+      "date": "2026-05-04",
+      "flow": 57.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0065",
+      "reservoirId": "res-0002",
+      "date": "2026-05-04",
+      "flow": 50,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0066",
+      "reservoirId": "res-0001",
+      "date": "2026-05-05",
+      "flow": 50.9,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0067",
+      "reservoirId": "res-0002",
+      "date": "2026-05-05",
+      "flow": 48.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0068",
+      "reservoirId": "res-0001",
+      "date": "2026-05-06",
+      "flow": 62.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0069",
+      "reservoirId": "res-0002",
+      "date": "2026-05-06",
+      "flow": 54.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0070",
+      "reservoirId": "res-0001",
+      "date": "2026-05-07",
+      "flow": 51.8,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0071",
+      "reservoirId": "res-0002",
+      "date": "2026-05-07",
+      "flow": 47,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0072",
+      "reservoirId": "res-0001",
+      "date": "2026-05-08",
+      "flow": 58.7,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0073",
+      "reservoirId": "res-0002",
+      "date": "2026-05-08",
+      "flow": 58.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0074",
+      "reservoirId": "res-0001",
+      "date": "2026-05-09",
+      "flow": 45.3,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0075",
+      "reservoirId": "res-0002",
+      "date": "2026-05-09",
+      "flow": 51,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0076",
+      "reservoirId": "res-0001",
+      "date": "2026-05-10",
+      "flow": 53.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0077",
+      "reservoirId": "res-0002",
+      "date": "2026-05-10",
+      "flow": 60.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0078",
+      "reservoirId": "res-0001",
+      "date": "2026-05-11",
+      "flow": 65,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0079",
+      "reservoirId": "res-0002",
+      "date": "2026-05-11",
+      "flow": 40.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0080",
+      "reservoirId": "res-0001",
+      "date": "2026-05-12",
+      "flow": 69.6,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0081",
+      "reservoirId": "res-0002",
+      "date": "2026-05-12",
+      "flow": 36.8,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0082",
+      "reservoirId": "res-0001",
+      "date": "2026-05-13",
+      "flow": 66,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0083",
+      "reservoirId": "res-0002",
+      "date": "2026-05-13",
+      "flow": 54.7,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0084",
+      "reservoirId": "res-0001",
+      "date": "2026-05-14",
+      "flow": 55.6,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0085",
+      "reservoirId": "res-0002",
+      "date": "2026-05-14",
+      "flow": 50.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0086",
+      "reservoirId": "res-0001",
+      "date": "2026-05-15",
+      "flow": 49.3,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0087",
+      "reservoirId": "res-0002",
+      "date": "2026-05-15",
+      "flow": 47.6,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0088",
+      "reservoirId": "res-0001",
+      "date": "2026-05-16",
+      "flow": 56.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0089",
+      "reservoirId": "res-0001",
+      "date": "2026-05-17",
+      "flow": 76.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0090",
+      "reservoirId": "res-0001",
+      "date": "2026-05-18",
+      "flow": 54.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0091",
+      "reservoirId": "res-0001",
+      "date": "2026-05-19",
+      "flow": 68.6,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0092",
+      "reservoirId": "res-0001",
+      "date": "2026-05-20",
+      "flow": 62.9,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0093",
+      "reservoirId": "res-0001",
+      "date": "2026-06-01",
+      "flow": 197.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0094",
+      "reservoirId": "res-0001",
+      "date": "2026-06-02",
+      "flow": 118.3,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0095",
+      "reservoirId": "res-0001",
+      "date": "2026-06-04",
+      "flow": 169.3,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0096",
+      "reservoirId": "res-0001",
+      "date": "2026-06-05",
+      "flow": 133.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0097",
+      "reservoirId": "res-0001",
+      "date": "2026-06-06",
+      "flow": 219.3,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0098",
+      "reservoirId": "res-0001",
+      "date": "2026-06-07",
+      "flow": 158.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0099",
+      "reservoirId": "res-0001",
+      "date": "2026-06-08",
+      "flow": 292.7,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0100",
+      "reservoirId": "res-0001",
+      "date": "2026-06-09",
+      "flow": 169.7,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0101",
+      "reservoirId": "res-0001",
+      "date": "2026-06-10",
+      "flow": 130.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0102",
+      "reservoirId": "res-0001",
+      "date": "2026-09-08",
+      "flow": 68.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0103",
+      "reservoirId": "res-0001",
+      "date": "2026-09-09",
+      "flow": 81,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0104",
+      "reservoirId": "res-0001",
+      "date": "2026-09-10",
+      "flow": 64.4,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0105",
+      "reservoirId": "res-0001",
+      "date": "2026-09-11",
+      "flow": 75.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0106",
+      "reservoirId": "res-0001",
+      "date": "2026-09-13",
+      "flow": 55.2,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0107",
+      "reservoirId": "res-0001",
+      "date": "2026-09-14",
+      "flow": 77.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0108",
+      "reservoirId": "res-0001",
+      "date": "2026-09-15",
+      "flow": 67.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0109",
+      "reservoirId": "res-0001",
+      "date": "2026-09-16",
+      "flow": 82.9,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0110",
+      "reservoirId": "res-0001",
+      "date": "2026-09-17",
+      "flow": 59.8,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0111",
+      "reservoirId": "res-0001",
+      "date": "2026-09-18",
+      "flow": 72.1,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0112",
+      "reservoirId": "res-0001",
+      "date": "2026-09-19",
+      "flow": 67.7,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0113",
+      "reservoirId": "res-0002",
+      "date": "2026-05-16",
+      "flow": 47.5,
+      "type": "预报",
+      "operator": "预报员",
+      "remark": "短期来水预报"
+    },
+    {
+      "id": "in-0114",
+      "reservoirId": "res-0001",
+      "date": "2026-09-25",
+      "flow": 0,
+      "type": "预报",
+      "operator": "",
       "remark": ""
     }
   ],

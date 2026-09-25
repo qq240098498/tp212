@@ -14,6 +14,9 @@ const DEFAULT_SETTINGS = {
   levelPrecision: 0.01,
   inflowAttentionFlow: 120,
   inflowSeriousFlow: 260,
+  forecastTolerancePct: 20,
+  forecastToleranceFlow: 10,
+  forecastPassPct: 80,
 };
 
 function normalize(raw) {

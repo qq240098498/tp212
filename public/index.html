@@ -27,6 +27,7 @@
   <button type="button" class="tab" data-view="water">水位与流量</button>
   <button type="button" class="tab" data-view="orders">调度指令</button>
   <button type="button" class="tab" data-view="balance">水量平衡</button>
+  <button type="button" class="tab" data-view="forecast">预报对照</button>
 </nav>
 
 <div class="notice" id="notice" hidden>
@@ -216,7 +217,10 @@
             </label>
             <label class="field">
               <span>类型</span>
-              <input type="text" name="type" value="实测" />
+              <select name="type">
+                <option value="实测" selected>实测</option>
+                <option value="预报">预报</option>
+              </select>
               <em class="field-msg" data-field-error="type" hidden></em>
             </label>
             <label class="field">
@@ -445,6 +449,155 @@
         <div id="balanceResult">
           <p class="empty">先选水库与起止日期，再点「计算」。</p>
         </div>
+      </div>
+    </section>
+
+    <section class="view" data-view="forecast">
+      <div class="view-head">
+        <div>
+          <h2>预报对照</h2>
+          <p class="view-sub">预报值与实测值并排列出，绝对偏差、相对偏差、按量加权偏差、命中判定与结论全部直接显示 <code>GET /api/forecast/eval</code> 返回的字段，前端不重算。判定范围的改动前后对照走 <code>GET /api/forecast/whatif</code>。</p>
+        </div>
+        <div class="view-actions">
+          <button type="button" class="btn btn-ghost" data-action="reload" data-view="forecast">刷新</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>评估条件 <span class="card-sub">按水库与时段评估</span></h3>
+        <form class="form-grid" id="forecastForm" novalidate>
+          <label class="field">
+            <span>水库</span>
+            <select name="reservoirId" id="forecastReservoir"></select>
+            <em class="field-msg" data-field-error="reservoirId" hidden></em>
+          </label>
+          <label class="field">
+            <span>起始日期</span>
+            <input type="date" name="from" id="forecastFrom" />
+            <em class="field-msg" data-field-error="from" hidden></em>
+          </label>
+          <label class="field">
+            <span>结束日期</span>
+            <input type="date" name="to" id="forecastTo" />
+            <em class="field-msg" data-field-error="to" hidden></em>
+          </label>
+          <label class="field">
+            <span>偏差最大天数</span>
+            <select name="top" id="forecastTop">
+              <option value="3">前 3 天</option>
+              <option value="5" selected>前 5 天</option>
+              <option value="10">前 10 天</option>
+            </select>
+            <em class="field-msg" data-field-error="top" hidden></em>
+          </label>
+          <div class="field-actions">
+            <button type="submit" class="btn btn-primary">评估</button>
+          </div>
+        </form>
+        <div class="form-error" id="forecastFormError" hidden></div>
+      </div>
+
+      <div class="card">
+        <h3>评估口径与结论 <span class="card-sub">接口 <code>GET /api/forecast/eval</code>，统计按日口径给出</span></h3>
+        <div id="forecastResult">
+          <p class="empty">先选水库与时段，再点「评估」。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>判定范围与试算 <span class="card-sub">「试算对比」只对照不改设置；「保存为设置」后结论立刻按新范围重评</span></h3>
+        <div class="inline-form">
+          <label class="field">
+            <span>允许相对偏差（%）</span>
+            <input type="number" step="0.1" id="ruleTolerancePct" />
+            <em class="field-msg" data-field-error="tolerancePct" hidden></em>
+          </label>
+          <label class="field">
+            <span>允许绝对偏差（m³/s）</span>
+            <input type="number" step="0.1" id="ruleToleranceFlow" />
+            <em class="field-msg" data-field-error="toleranceFlow" hidden></em>
+          </label>
+          <label class="field">
+            <span>合格命中率（%）</span>
+            <input type="number" step="0.1" id="rulePassPct" />
+            <em class="field-msg" data-field-error="passPct" hidden></em>
+          </label>
+          <button type="button" class="btn" data-action="forecast-whatif">试算对比</button>
+          <button type="button" class="btn btn-primary" data-action="forecast-save-rules">保存为设置并重评</button>
+        </div>
+        <div class="form-error" id="forecastRuleError" hidden></div>
+        <div id="forecastWhatif"></div>
+      </div>
+
+      <div class="card">
+        <h3>对照表 <span class="card-sub">按日、按旬、按月三种口径各一份</span></h3>
+        <div class="subtabs" id="forecastSubtabs">
+          <button type="button" class="subtab is-active" data-action="switch-forecast" data-kind="day">按日</button>
+          <button type="button" class="subtab" data-action="switch-forecast" data-kind="xun">按旬</button>
+          <button type="button" class="subtab" data-action="switch-forecast" data-kind="month">按月</button>
+        </div>
+        <div id="forecastPeriodStats"></div>
+        <div class="table-wrap">
+          <table class="table" id="forecastTable">
+            <thead id="forecastTableHead"></thead>
+            <tbody id="forecastRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>预报偏差最大的天 <span class="card-sub">按 |绝对偏差| 从大到小，条数取评估条件里选的天数</span></h3>
+        <div class="table-wrap">
+          <table class="table" id="forecastTopTable">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>日期</th>
+                <th class="num">预报（m³/s）</th>
+                <th class="num">实测（m³/s）</th>
+                <th class="num">绝对偏差（m³/s）</th>
+                <th class="num">相对偏差（%）</th>
+                <th>判定</th>
+              </tr>
+            </thead>
+            <tbody id="forecastTopRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>登记预报流量 <span class="card-sub">接口 <code>POST /api/flows</code>（kind=inflow，类型=预报）；同库同日重复登记会覆盖旧预报</span></h3>
+        <form class="form-grid" id="forecastEntryForm" novalidate>
+          <label class="field">
+            <span>水库</span>
+            <select name="reservoirId" id="forecastEntryReservoir"></select>
+            <em class="field-msg" data-field-error="reservoirId" hidden></em>
+          </label>
+          <label class="field">
+            <span>日期</span>
+            <input type="date" name="date" id="forecastEntryDate" />
+            <em class="field-msg" data-field-error="date" hidden></em>
+          </label>
+          <label class="field">
+            <span>预报流量（m³/s）</span>
+            <input type="number" step="0.01" name="flow" placeholder="60" />
+            <em class="field-msg" data-field-error="flow" hidden></em>
+          </label>
+          <label class="field">
+            <span>记录人</span>
+            <input type="text" name="operator" placeholder="预报员" />
+            <em class="field-msg" data-field-error="operator" hidden></em>
+          </label>
+          <label class="field field-wide">
+            <span>备注</span>
+            <input type="text" name="remark" placeholder="可不填" />
+            <em class="field-msg" data-field-error="remark" hidden></em>
+          </label>
+          <div class="field-actions">
+            <button type="submit" class="btn btn-primary">登记预报</button>
+          </div>
+        </form>
+        <div class="form-error" id="forecastEntryError" hidden></div>
       </div>
     </section>
 

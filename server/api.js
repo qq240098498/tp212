@@ -5,6 +5,7 @@ const reservoirs = require('./reservoirs');
 const records = require('./records');
 const water = require('./water');
 const summary = require('./summary');
+const forecast = require('./forecast');
 
 const router = express.Router();
 
@@ -29,10 +30,38 @@ router.get('/health', (req, res) => {
 router.get('/summary', withData((data) => summary.overview(data)));
 
 router.get('/settings', withData((data) => data.settings));
+
+// 数值型设置的取值规则：要填有限数字，且不能小于 0（命中率类不超过 100）
+const NUMERIC_SETTING_RULES = {
+  balanceToleranceWan: { max: null },
+  lossPerDayWan: { max: null },
+  levelPrecision: { max: null },
+  inflowAttentionFlow: { max: null },
+  inflowSeriousFlow: { max: null },
+  forecastTolerancePct: { max: 100 },
+  forecastToleranceFlow: { max: null },
+  forecastPassPct: { max: 100 },
+};
+
 router.patch('/settings', withData((data, req) => {
   const patch = req.body || {};
+  const errors = {};
   for (const key of Object.keys(store.DEFAULT_SETTINGS)) {
-    if (patch[key] !== undefined) data.settings[key] = patch[key];
+    if (patch[key] === undefined) continue;
+    const rule = NUMERIC_SETTING_RULES[key];
+    if (rule) {
+      const value = Number(patch[key]);
+      if (!Number.isFinite(value) || value < 0 || (rule.max !== null && value > rule.max)) {
+        errors[key] = '要填不小于 0 的数字' + (rule.max !== null ? '（0～' + rule.max + '）' : '');
+        continue;
+      }
+      data.settings[key] = value;
+    } else {
+      data.settings[key] = patch[key];
+    }
+  }
+  if (Object.keys(errors).length) {
+    throw new AppError(400, 'VALIDATION_FAILED', '设置没通过校验，请按提示补齐', errors);
   }
   return { __save: true, __body: data.settings };
 }));
@@ -59,6 +88,9 @@ router.patch('/orders/:id', withData((data, req) => ({ __save: true, __body: rec
 router.post('/orders/:id/copy', withData((data, req) => ({ __save: true, __body: records.copyOrder(data, req.params.id, req.body) })));
 router.post('/orders/:id/attachments', withData((data, req) => ({ __save: true, __body: records.addAttachment(data, req.params.id, req.body || {}) })));
 router.delete('/orders/:id', withData((data, req) => ({ __save: true, __body: records.removeOrder(data, req.params.id) })));
+
+router.get('/forecast/eval', withData((data, req) => forecast.evaluate(data, req.query)));
+router.get('/forecast/whatif', withData((data, req) => forecast.whatif(data, req.query)));
 
 router.get('/balance', withData((data, req) => {
   const { reservoirId, from, to } = req.query;
