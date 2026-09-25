@@ -466,3 +466,9 @@ code {
   .layout { grid-template-columns: 1fr; }
   .sidebar { position: static; flex-direction: row; flex-wrap: wrap; }
 }
+
+/* 预报对照页 */
+.conclusion-text { font-size: 14px; line-height: 1.7; margin: 6px 0 10px; padding: 10px 12px; background: var(--indigo-soft); border-left: 3px solid var(--indigo); border-radius: var(--radius); }
+.verdict-line { font-size: 13px; line-height: 1.9; margin: 10px 0 0; }
+.row-miss td { background: #fdf3ee; }
+.forecast-day-row td { font-variant-numeric: tabular-nums; }

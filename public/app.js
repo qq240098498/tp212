@@ -6,7 +6,7 @@
 
   /* ================= 常量与工具 ================= */
 
-  var VIEW_IDS = ['overview', 'reservoirs', 'water', 'orders', 'balance'];
+  var VIEW_IDS = ['overview', 'reservoirs', 'water', 'orders', 'balance', 'forecast'];
   var ORDER_STATUSES = ['已下达', '执行中', '已完成', '已撤销'];
   var RESERVOIR_STATUSES = ['运行', '检修'];
 
@@ -128,7 +128,11 @@
     flows: { inflow: [], release: [] },
     orders: [],
     balance: null,
-    expanded: { reservoir: '', level: '', flow: '', order: '' },
+    forecasts: [],
+    forecastResult: null,
+    forecastPrev: null,
+    forecastLastForm: null,
+    expanded: { reservoir: '', level: '', flow: '', order: '', forecast: '' },
     reservoirDetail: null,
     curveDraft: null,
     curveQuery: { reservoirId: '', byLevel: null, byCapacity: null },
@@ -137,7 +141,8 @@
       reservoirs: { basin: '', status: '', keyword: '' },
       water: { reservoirId: '', from: '', to: '' },
       orders: { reservoirId: '', status: '' },
-      balance: { reservoirId: '', from: '2026-05-01', to: '2026-05-10' }
+      balance: { reservoirId: '', from: '2026-05-01', to: '2026-05-10' },
+      forecast: { reservoirId: '', from: '2026-05-01', to: '2026-09-30', allowancePct: '', topN: 10 }
     }
   };
 
@@ -245,6 +250,12 @@
         renderOrders();
       } else if (view === 'balance') {
         renderBalance();
+      } else if (view === 'forecast') {
+        state.forecasts = await api('GET', '/api/forecasts');
+        fillReservoirSelects();
+        renderForecastRecords();
+        // 已有评估结果就按当前表单重算一遍，保证登记/删除预报后对照立即更新
+        await runForecastEvaluation();
       }
     } catch (err) {
       showError(err);
@@ -372,6 +383,20 @@
       html.push('<li>每天损失 ' + esc(dash(state.settings ? state.settings.lossPerDayWan : '')) + ' 万m³</li>');
       html.push('<li>容差 ' + esc(dash(state.settings ? state.settings.balanceToleranceWan : '')) + ' 万m³</li>');
       html.push('<li>汛期 ' + esc(dash(state.settings ? state.settings.floodSeasonStart + ' 至 ' + state.settings.floodSeasonEnd : '')) + '</li>');
+      html.push('</ul></div>');
+    } else if (view === 'forecast') {
+      html.push('<div class="side-block"><h3>预报对照口径</h3><ul class="side-list">');
+      html.push('<li>同库同日同时有预报与实测才配对</li>');
+      html.push('<li>绝对偏差 = 预报 − 实测</li>');
+      html.push('<li>相对偏差 = 偏差 ÷ 实测</li>');
+      html.push('<li>加权偏差以实测流量为权重</li>');
+      html.push('<li>日、旬、月各出一份对照</li>');
+      html.push('<li>所有数字取接口字段，前端不重算</li>');
+      html.push('</ul></div>');
+      html.push('<div class="side-block"><h3>当前设置</h3><ul class="side-list">');
+      html.push('<li>允许相对偏差 ±' + esc(dash(state.settings ? state.settings.forecastAllowancePct : '')) + '%</li>');
+      html.push('<li>页面上可临时改判定范围做前后对照</li>');
+      html.push('<li>重复评估两次结果应完全一致</li>');
       html.push('</ul></div>');
     }
 
@@ -827,6 +852,336 @@
       + '</ul>';
   }
 
+  /* ================= 预报入库流量对照 ================= */
+
+  function forecastEvalParams() {
+    var f = state.filters.forecast;
+    return {
+      reservoirId: f.reservoirId,
+      from: f.from,
+      to: f.to,
+      allowancePct: f.allowancePct === '' || f.allowancePct === null || f.allowancePct === undefined ? undefined : Number(f.allowancePct),
+      topN: Number(f.topN) || 10
+    };
+  }
+
+  function evalQuery(params) {
+    return queryString({
+      reservoirId: params.reservoirId,
+      from: params.from,
+      to: params.to,
+      allowancePct: params.allowancePct,
+      topN: params.topN
+    });
+  }
+
+  /* 调一次评估接口；自动把上一次结果留在 forecastPrev 里做对照 */
+  async function runForecastEvaluation() {
+    var errorBox = el('forecastEvalError');
+    clearFormError(errorBox);
+    var params = forecastEvalParams();
+    state.forecastLastForm = JSON.parse(JSON.stringify(params));
+    var prev = state.forecastResult;
+    try {
+      var result = await api('GET', '/api/forecast/evaluation' + evalQuery(params));
+      state.forecastPrev = prev;
+      state.forecastResult = result;
+      renderForecast();
+      return result;
+    } catch (err) {
+      showError(err, errorBox);
+      return null;
+    }
+  }
+
+  function pctText(value) {
+    if (value === null || value === undefined || value === '') return '—';
+    return numText(value) + '%';
+  }
+
+  function hitTag(within) {
+    if (within === true) return '<span class="tag is-ok">命中</span>';
+    if (within === false) return '<span class="tag is-over">失手</span>';
+    return '<span class="tag">—</span>';
+  }
+
+  function dirTag(dir) {
+    if (dir === '偏大') return '<span class="tag is-warn">偏大</span>';
+    if (dir === '偏小') return '<span class="tag is-strong">偏小</span>';
+    if (dir === '持平') return '<span class="tag is-ok">持平</span>';
+    return '<span class="tag">—</span>';
+  }
+
+  function withinText(within) {
+    if (within === true) return '<span class="tag is-ok">落在允许范围内</span>';
+    if (within === false) return '<span class="tag is-over">超出允许范围</span>';
+    return '—';
+  }
+
+  function resultItem2(label, value, accent) {
+    return '<div class="item' + (accent ? ' is-strong' : '') + '"><span class="k">' + esc(label) + '</span><span class="v">' + esc(dash(value)) + '</span></div>';
+  }
+
+  function metricsCardHtml(r) {
+    var s = r.stats;
+    return '<div class="result-grid">'
+      + resultItem2('对照天数', s.total)
+      + resultItem2('预报偏大（天/占比）', s.highDays + ' 天 / ' + s.highPct + '%', s.highDays > s.lowDays)
+      + resultItem2('预报偏小（天/占比）', s.lowDays + ' 天 / ' + s.lowPct + '%', s.lowDays > s.highDays)
+      + resultItem2('持平（天/占比）', s.evenDays + ' 天 / ' + s.evenPct + '%')
+      + resultItem2('平均绝对相对偏差', pctText(s.mape))
+      + resultItem2('按量加权平均绝对相对偏差', pctText(s.weightedApePct))
+      + resultItem2('按量加权相对偏差（带方向）', pctText(s.weightedDevPct))
+      + resultItem2('命中天数 / 失手天数', s.hitDays + ' / ' + s.missDays)
+      + resultItem2('命中率', pctText(s.hitRatePct), s.hitRatePct !== null && s.hitRatePct < 80)
+      + resultItem2('时段预报合计 / 实测合计（m³/s·日）', s.forecastSum + ' / ' + s.actualSum)
+      + resultItem2('时段总量偏差 / 相对偏差', s.dev + ' / ' + pctText(s.devPct))
+      + '</div>'
+      + '<p class="verdict-line">允许范围（页面当前判定口径）：<b>±' + esc(r.allowancePct) + '%</b>　结论：' + withinText(s.within) + '</p>';
+  }
+
+  function consistencyHtml(r) {
+    var prev = state.forecastPrev;
+    var repeat = prev && prev.dataFingerprint === r.dataFingerprint && Number(prev.allowancePct) === Number(r.allowancePct);
+    var repeatLine = '';
+    if (repeat) {
+      repeatLine = '<p class="verdict-line">上一次评估指纹：<b>' + esc(prev.fingerprint) + '</b><br/>本次评估指纹：<b>'
+        + esc(r.fingerprint) + '</b><br/>'
+        + (prev.fingerprint === r.fingerprint
+          ? '<span class="tag is-ok">两次评估指纹完全一致，结果可复现</span>'
+          : '<span class="tag is-over">两次结果不一致，请核对数据</span>') + '</p>';
+    }
+    return '<div class="detail-grid">'
+      + itemHtml(['本次评估指纹', r.fingerprint])
+      + itemHtml(['本批数据指纹', r.dataFingerprint])
+      + itemHtml(['对照天数', r.pairedDays])
+      + itemHtml(['命中 / 失手', r.stats.hitDays + ' / ' + r.stats.missDays])
+      + itemHtml(['平均绝对相对偏差', pctText(r.stats.mape)])
+      + itemHtml(['当前允许范围', '±' + r.allowancePct + '%'])
+      + '</div>'
+      + repeatLine
+      + '<p class="side-note">同一批数据、同一判定范围重复评估两次，指纹与全部数字必须完全一致（点上方「再评估一次（验重复一致）」核对）。</p>';
+  }
+
+  /* 改动前后对照：相邻两次评估同批数据、允许范围不同时给出；按 水库+日期 对齐逐日比较 */
+  function baselineDiffHtml(base, current) {
+    var sameData = base.dataFingerprint === current.dataFingerprint;
+    if (!sameData) {
+      return '<p class="empty">两次评估之间底层预报或实测数据发生了变化，不做前后对照；改允许范围后再评估即可看到对照。</p>';
+    }
+    var map = {};
+    base.daily.forEach(function (d) { map[d.reservoirId + '|' + d.date] = d; });
+    var flip = [];
+    current.daily.forEach(function (d) {
+      var b = map[d.reservoirId + '|' + d.date];
+      if (b && b.within !== d.within) flip.push({ before: b, after: d });
+    });
+    var rows = flip.map(function (f) {
+      return '<tr>'
+        + '<td>' + esc(f.after.reservoirName) + '</td>'
+        + '<td>' + esc(f.after.date) + '</td>'
+        + '<td class="num">' + esc(numText(f.after.forecast)) + '</td>'
+        + '<td class="num">' + esc(numText(f.after.actual)) + '</td>'
+        + '<td class="num">' + esc(pctText(f.after.absRelPct)) + '</td>'
+        + '<td>' + hitTag(f.before.within) + '</td>'
+        + '<td>' + hitTag(f.after.within) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<p class="verdict-line">判定范围 <b>±' + esc(base.allowancePct) + '% → ±' + esc(current.allowancePct)
+      + '%</b>，同批数据（数据指纹 ' + esc(current.dataFingerprint.slice(0, 12)) + '…），评估指纹 '
+      + esc(base.fingerprint.slice(0, 12)) + ' → ' + esc(current.fingerprint.slice(0, 12)) + '。</p>'
+      + '<div class="detail-grid">'
+      + itemHtml(['命中天数', base.stats.hitDays + ' → ' + current.stats.hitDays])
+      + itemHtml(['失手天数', base.stats.missDays + ' → ' + current.stats.missDays])
+      + itemHtml(['命中率', pctText(base.stats.hitRatePct) + ' → ' + pctText(current.stats.hitRatePct)])
+      + itemHtml(['逐日命中标记翻转', flip.length + ' 天'])
+      + '</div>'
+      + '<p class="verdict-line">总量结论 改动前：' + withinText(base.stats.within) + '　改动后：' + withinText(current.stats.within)
+      + '（总量相对偏差 ' + pctText(base.stats.devPct) + ' → ' + pctText(current.stats.devPct) + '，判定范围变了但总量偏差本身不变，只是按新范围重新判定）</p>'
+      + (rows ? '<div class="table-wrap"><table class="table mini-table"><thead><tr><th>水库</th><th>日期</th><th class="num">预报</th><th class="num">实测</th><th class="num">绝对相对偏差</th><th>改动前（±' + esc(base.allowancePct) + '%）</th><th>改动后（±' + esc(current.allowancePct) + '%）</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<p class="empty">允许范围变了，但没有哪一天的命中标记发生翻转。</p>');
+  }
+
+  function dailyTableHtml(r) {
+    var rows = r.daily.map(function (d) {
+      return '<tr class="forecast-day-row">'
+        + '<td>' + esc(d.reservoirName) + '</td>'
+        + '<td>' + esc(d.date) + '</td>'
+        + '<td class="num">' + esc(numText(d.forecast)) + '</td>'
+        + '<td class="num">' + esc(numText(d.actual)) + '</td>'
+        + '<td class="num">' + esc(numText(d.dev)) + '</td>'
+        + '<td class="num">' + esc(numText(d.absError)) + '</td>'
+        + '<td class="num">' + esc(pctText(d.relPct)) + '</td>'
+        + '<td>' + dirTag(d.direction) + '</td>'
+        + '<td>' + hitTag(d.within) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="table-wrap"><table class="table"><thead><tr>'
+      + '<th>水库</th><th>日期</th><th class="num">预报（m³/s）</th><th class="num">实测（m³/s）</th>'
+      + '<th class="num">绝对偏差</th><th class="num">绝对偏差绝对值</th><th class="num">相对偏差</th><th>方向</th><th>是否落在允许范围（±' + esc(r.allowancePct) + '%）</th>'
+      + '</tr></thead><tbody>' + (rows || '<tr><td colspan="9" class="empty">所选水库与时段内没有可配对的天数。</td></tr>') + '</tbody></table></div>';
+  }
+
+  function periodTableHtml(title, unit, groups, r) {
+    var rows = groups.map(function (g) {
+      return '<tr>'
+        + '<td>' + esc(g.reservoirName) + '</td>'
+        + '<td>' + esc(g.period) + '</td>'
+        + '<td>' + esc(g.fromDate) + ' 至 ' + esc(g.toDate) + '</td>'
+        + '<td class="num">' + g.total + '</td>'
+        + '<td class="num">' + g.forecastSum + '</td>'
+        + '<td class="num">' + g.actualSum + '</td>'
+        + '<td class="num">' + esc(numText(g.dev)) + '</td>'
+        + '<td class="num">' + esc(pctText(g.devPct)) + '</td>'
+        + '<td class="num">' + esc(pctText(g.mape)) + '</td>'
+        + '<td class="num">' + esc(pctText(g.weightedApePct)) + '</td>'
+        + '<td class="num">' + g.highDays + '（' + g.highPct + '%）</td>'
+        + '<td class="num">' + g.lowDays + '（' + g.lowPct + '%）</td>'
+        + '<td class="num">' + g.hitDays + ' / ' + g.missDays + '</td>'
+        + '<td>' + withinText(g.within) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="card"><h3>' + title + ' <span class="card-sub">每行一个' + unit + '，字段全部取接口</span></h3>'
+      + '<div class="table-wrap"><table class="table"><thead><tr>'
+      + '<th>水库</th><th>' + unit + '</th><th>日期范围</th><th class="num">天数</th>'
+      + '<th class="num">预报合计</th><th class="num">实测合计</th><th class="num">绝对偏差合计</th><th class="num">总量相对偏差</th>'
+      + '<th class="num">平均绝对相对偏差</th><th class="num">按量加权平均绝对相对偏差</th>'
+      + '<th class="num">偏大（天/占比）</th><th class="num">偏小（天/占比）</th><th class="num">命中/失手</th><th>总量是否在允许范围</th>'
+      + '</tr></thead><tbody>' + (rows || '<tr><td colspan="14" class="empty">没有数据。</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  function worstTableHtml(r) {
+    var rows = r.worst.map(function (d) {
+      return '<tr' + (d.within ? '' : ' class="row-miss"') + '>'
+        + '<td class="num">' + d.rank + '</td>'
+        + '<td>' + esc(d.reservoirName) + '</td>'
+        + '<td>' + esc(d.date) + '</td>'
+        + '<td class="num">' + esc(numText(d.forecast)) + '</td>'
+        + '<td class="num">' + esc(numText(d.actual)) + '</td>'
+        + '<td class="num">' + esc(numText(d.dev)) + '</td>'
+        + '<td class="num">' + esc(pctText(d.absRelPct)) + '</td>'
+        + '<td>' + dirTag(d.direction) + '</td>'
+        + '<td>' + hitTag(d.within) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="card"><h3>预报偏差最大的 ' + r.worst.length + ' 天 <span class="card-sub">按绝对相对偏差从大到小（接口 <code>worst</code> 字段，取前 ' + r.topN + '）</span></h3>'
+      + '<div class="table-wrap"><table class="table"><thead><tr>'
+      + '<th class="num">名次</th><th>水库</th><th>日期</th><th class="num">预报</th><th class="num">实测</th>'
+      + '<th class="num">绝对偏差</th><th class="num">绝对相对偏差</th><th>方向</th><th>是否在允许范围</th>'
+      + '</tr></thead><tbody>' + (rows || '<tr><td colspan="9" class="empty">没有数据。</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  function renderForecast() {
+    var box = el('forecastResult');
+    var r = state.forecastResult;
+    if (!r) return;
+    var html = [];
+
+    html.push('<div class="card"><h3>评估结论 <span class="card-sub">接口 <code>GET /api/forecast/evaluation</code></span></h3>');
+    html.push('<p class="conclusion-text">' + esc(r.conclusion) + '</p>');
+    if (r.perReservoir.length) {
+      html.push('<ul class="caliber">');
+      r.perReservoir.forEach(function (p) {
+        html.push('<li>' + esc(p.conclusion) + '</li>');
+      });
+      html.push('</ul>');
+    }
+    html.push(metricsCardHtml(r));
+    html.push('</div>');
+
+    html.push('<div class="card"><h3>重复评估一致性核对 <span class="card-sub">接口 <code>fingerprint</code> 字段</span></h3>' + consistencyHtml(r) + '</div>');
+
+    if (state.forecastPrev && state.forecastPrev.dataFingerprint === r.dataFingerprint
+      && Number(state.forecastPrev.allowancePct) !== Number(r.allowancePct)) {
+      html.push('<div class="card"><h3>允许范围改动前后对照 <span class="card-sub">相邻两次评估，同批数据不同判定范围</span></h3>'
+        + baselineDiffHtml(state.forecastPrev, r) + '</div>');
+    }
+
+    html.push('<div class="card"><h3>按日对照 <span class="card-sub">逐日并排预报与实测（接口 <code>daily</code> 字段）</span></h3>' + dailyTableHtml(r) + '</div>');
+    html.push(periodTableHtml('按旬对照', '旬', r.decades, r));
+    html.push(periodTableHtml('按月对照', '月', r.months, r));
+    html.push(worstTableHtml(r));
+
+    box.innerHTML = html.join('');
+  }
+
+  function renderForecastRecords() {
+    var rows = state.forecasts || [];
+    var tbody = el('forecastRows');
+    var count = el('forecastCount');
+    if (count) count.textContent = '共 ' + rows.length + ' 条预报';
+    if (!tbody) return;
+    var colspan = columnCount('forecastRows');
+    var html = [];
+    rows.forEach(function (row) {
+      var expanded = state.expanded.forecast === row.id;
+      html.push('<tr class="forecast-row' + (expanded ? ' is-expanded' : '') + '" data-action="toggle-forecast" data-id="' + esc(row.id) + '">'
+        + '<td>' + esc(dash(row.date)) + '</td>'
+        + '<td>' + esc(dash(row.reservoirName)) + '</td>'
+        + '<td class="num">' + esc(numText(row.flow)) + '</td>'
+        + '<td class="num">' + esc(numText(row.leadDays)) + '</td>'
+        + '<td>' + esc(dash(row.source)) + '</td>'
+        + '<td>' + esc(dash(row.operator)) + '</td>'
+        + '<td><span class="tag">展开</span></td>'
+        + '</tr>');
+      if (expanded) {
+        var items = [
+          ['记录编号', row.id],
+          ['预见期（天）', row.leadDays],
+          ['预报来源', row.source],
+          ['预报员', row.operator],
+          ['备注', row.remark]
+        ];
+        html.push('<tr class="detail-row" data-detail-for="' + esc(row.id) + '"><td colspan="' + colspan + '"><div class="detail">'
+          + '<div class="detail-grid">' + items.map(itemHtml).join('') + '</div>'
+          + '<div class="detail-actions">'
+          + '<button type="button" class="btn btn-sm" data-action="delete-forecast" data-id="' + esc(row.id) + '">删除这条预报</button>'
+          + '</div></div></td></tr>');
+      }
+    });
+    tbody.innerHTML = html.length ? html.join('') : emptyRow(colspan, '还没有预报记录，先在上方登记。');
+  }
+
+  async function submitForecast(form) {
+    var errorBox = el('forecastFormError');
+    clearFormError(errorBox);
+    var values = formValues(form);
+    try {
+      var result = await api('POST', '/api/forecasts', {
+        reservoirId: values.reservoirId,
+        date: values.date,
+        flow: Number(values.flow),
+        leadDays: values.leadDays === '' ? undefined : Number(values.leadDays),
+        source: values.source,
+        operator: values.operator,
+        remark: values.remark
+      });
+      toast(result && result.updated ? '当天这条预报已覆盖更新' : '预报已登记');
+      state.forecasts = await api('GET', '/api/forecasts');
+      renderForecastRecords();
+    } catch (err) {
+      showError(err, errorBox);
+    }
+  }
+
+  async function submitForecastEval(form) {
+    var values = formValues(form);
+    state.filters.forecast = {
+      reservoirId: values.reservoirId,
+      from: values.from,
+      to: values.to,
+      allowancePct: values.allowancePct === '' ? '' : Number(values.allowancePct),
+      topN: Number(values.topN) || 10
+    };
+    var result = await runForecastEvaluation();
+    if (result) toast('已按接口返回字段给出评估（指纹 ' + result.fingerprint.slice(0, 8) + '）');
+  }
+
+  async function rerunForecast() {
+    var result = await runForecastEvaluation();
+    if (result) toast('已用同一批数据、同一口径再评估一次');
+  }
+
   /* ================= 设置弹层 ================= */
 
   function openSettingsModal() {
@@ -839,8 +1194,9 @@
       + '<label class="field"><span>平衡容差（万m³）</span><input type="number" step="0.01" name="balanceToleranceWan" value="' + esc(s.balanceToleranceWan) + '" /><em class="field-msg" data-field-error="balanceToleranceWan" hidden></em></label>'
       + '<label class="field"><span>入库注意流量（m³/s）</span><input type="number" step="0.01" name="inflowAttentionFlow" value="' + esc(s.inflowAttentionFlow) + '" /><em class="field-msg" data-field-error="inflowAttentionFlow" hidden></em></label>'
       + '<label class="field"><span>入库严重流量（m³/s）</span><input type="number" step="0.01" name="inflowSeriousFlow" value="' + esc(s.inflowSeriousFlow) + '" /><em class="field-msg" data-field-error="inflowSeriousFlow" hidden></em></label>'
+      + '<label class="field"><span>预报允许相对偏差（%）</span><input type="number" step="0.1" min="0" name="forecastAllowancePct" value="' + esc(s.forecastAllowancePct) + '" /><em class="field-msg" data-field-error="forecastAllowancePct" hidden></em></label>'
       + '</div>'
-      + '<p class="side-note">水量单位 ' + esc(dash(s.volumeUnit)) + '，流量单位 ' + esc(dash(s.flowUnit)) + '，水位精度 ' + esc(dash(s.levelPrecision)) + '。保存后限水位与是否超限会按新汛期重新取接口值。</p>';
+      + '<p class="side-note">水量单位 ' + esc(dash(s.volumeUnit)) + '，流量单位 ' + esc(dash(s.flowUnit)) + '，水位精度 ' + esc(dash(s.levelPrecision)) + '。保存后限水位与是否超限会按新汛期重新取接口值；预报对照页的「恢复设置里的允许范围」按这里的允许偏差取默认口径。</p>';
     el('modalFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-action="close-modal">取消</button>'
       + '<button type="button" class="btn btn-primary" data-action="save-settings">保存设置</button>';
     el('modalError').setAttribute('hidden', '');
@@ -860,7 +1216,7 @@
       var input = qs('[name="' + key + '"]');
       if (input) body[key] = input.value.trim();
     });
-    ['lossPerDayWan', 'balanceToleranceWan', 'inflowAttentionFlow', 'inflowSeriousFlow'].forEach(function (key) {
+    ['lossPerDayWan', 'balanceToleranceWan', 'inflowAttentionFlow', 'inflowSeriousFlow', 'forecastAllowancePct'].forEach(function (key) {
       var input = qs('[name="' + key + '"]');
       if (input) body[key] = Number(input.value);
     });
@@ -1039,6 +1395,7 @@
     if (type === 'level') state.expanded.level = state.expanded.level === id ? '' : id;
     if (type === 'order') state.expanded.order = state.expanded.order === id ? '' : id;
     if (type === 'flow') state.expanded.flow = state.expanded.flow === id ? '' : id;
+    if (type === 'forecast') state.expanded.forecast = state.expanded.forecast === id ? '' : id;
   }
 
   /* ================= 事件委托 ================= */
@@ -1062,6 +1419,7 @@
     if (action === 'toggle-level') { toggleRow('level', btn.dataset.id); renderWater(); return; }
     if (action === 'toggle-flow') { toggleRow('flow', btn.dataset.kind + ':' + btn.dataset.id); renderWater(); return; }
     if (action === 'toggle-order') { toggleRow('order', btn.dataset.id); renderOrders(); return; }
+    if (action === 'toggle-forecast') { toggleRow('forecast', btn.dataset.id); renderForecastRecords(); return; }
 
     if (action === 'delete-level') {
       if (!armDelete(btn)) return;
@@ -1091,6 +1449,23 @@
         toast('指令已删除');
         await reloadView('orders');
       } catch (err) { showError(err); }
+      return;
+    }
+    if (action === 'delete-forecast') {
+      if (!armDelete(btn)) return;
+      try {
+        await api('DELETE', '/api/forecasts/' + encodeURIComponent(btn.dataset.id));
+        state.expanded.forecast = '';
+        toast('预报记录已删除');
+        await reloadView('forecast');
+      } catch (err) { showError(err); }
+      return;
+    }
+    if (action === 'rerun-forecast') { await rerunForecast(); return; }
+    if (action === 'reset-allowance') {
+      var input = el('forecastAllowance');
+      if (input) input.value = state.settings && state.settings.forecastAllowancePct != null ? state.settings.forecastAllowancePct : '';
+      toast('已恢复为设置里的允许范围，点「评估」按该范围重算');
       return;
     }
 
@@ -1269,13 +1644,15 @@
     el('releaseForm').addEventListener('submit', function (event) { event.preventDefault(); submitFlow(event.target, 'release'); });
     el('orderForm').addEventListener('submit', function (event) { event.preventDefault(); submitOrder(event.target); });
     el('balanceForm').addEventListener('submit', function (event) { event.preventDefault(); submitBalance(event.target); });
+    el('forecastForm').addEventListener('submit', function (event) { event.preventDefault(); submitForecast(event.target); });
+    el('forecastEvalForm').addEventListener('submit', function (event) { event.preventDefault(); submitForecastEval(event.target); });
   }
 
   /* ================= 下拉与默认值 ================= */
 
   function fillReservoirSelects() {
     var list = state.reservoirs || [];
-    ['levelFormReservoir', 'inflowFormReservoir', 'releaseFormReservoir', 'orderFormReservoir', 'balanceReservoir'].forEach(function (id) {
+    ['levelFormReservoir', 'inflowFormReservoir', 'releaseFormReservoir', 'orderFormReservoir', 'balanceReservoir', 'forecastFormReservoir', 'forecastEvalReservoir'].forEach(function (id) {
       var node = el(id);
       if (!node) return;
       var current = node.value;
@@ -1305,6 +1682,18 @@
     if (balanceFrom && !balanceFrom.value) balanceFrom.value = state.filters.balance.from;
     var balanceTo = el('balanceTo');
     if (balanceTo && !balanceTo.value) balanceTo.value = state.filters.balance.to;
+
+    var forecastDate = el('forecastFormDate');
+    if (forecastDate && !forecastDate.value) forecastDate.value = todayIso();
+    var evalFrom = el('forecastEvalFrom');
+    if (evalFrom && !evalFrom.value) evalFrom.value = state.filters.forecast.from;
+    var evalTo = el('forecastEvalTo');
+    if (evalTo && !evalTo.value) evalTo.value = state.filters.forecast.to;
+    var allowance = el('forecastAllowance');
+    if (allowance && !allowance.value && state.settings && state.settings.forecastAllowancePct != null) {
+      allowance.value = state.settings.forecastAllowancePct;
+      state.filters.forecast.allowancePct = Number(state.settings.forecastAllowancePct);
+    }
   }
 
   /* ================= 启动 ================= */
@@ -1330,6 +1719,7 @@
       state.flows.inflow = await api('GET', '/api/flows?kind=inflow');
       state.flows.release = await api('GET', '/api/flows?kind=release');
       state.orders = await api('GET', '/api/orders');
+      state.forecasts = await api('GET', '/api/forecasts');
     } catch (err) {
       showError(err);
     }
@@ -1342,6 +1732,8 @@
     renderWater();
     renderOrders();
     renderBalance();
+    renderForecastRecords();
+    renderForecast();
   }
 
   if (document.readyState === 'loading') {

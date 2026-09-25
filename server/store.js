@@ -14,12 +14,14 @@ const DEFAULT_SETTINGS = {
   levelPrecision: 0.01,
   inflowAttentionFlow: 120,
   inflowSeriousFlow: 260,
+  // 预报入库流量允许的相对偏差（%）：|预报-实测|/实测 不超过这个比例算命中
+  forecastAllowancePct: 20,
 };
 
 function normalize(raw) {
   const data = raw && typeof raw === 'object' ? raw : {};
   data.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
-  for (const key of ['reservoirs', 'curves', 'levels', 'inflows', 'releases', 'orders']) {
+  for (const key of ['reservoirs', 'curves', 'levels', 'inflows', 'releases', 'orders', 'forecasts']) {
     if (!Array.isArray(data[key])) data[key] = [];
   }
   return data;

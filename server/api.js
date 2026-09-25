@@ -5,6 +5,7 @@ const reservoirs = require('./reservoirs');
 const records = require('./records');
 const water = require('./water');
 const summary = require('./summary');
+const forecast = require('./forecast');
 
 const router = express.Router();
 
@@ -84,6 +85,22 @@ router.get('/curve/query', withData((data, req) => {
     out.levelByCurve = water.levelAt(curve, capacity);
   }
   return out;
+}));
+
+router.get('/forecasts', withData((data, req) => forecast.listForecasts(data, req.query)));
+router.post('/forecasts', withData((data, req) => ({ __save: true, __body: forecast.saveForecast(data, req.body || {}) })));
+router.delete('/forecasts/:id', withData((data, req) => ({ __save: true, __body: forecast.removeForecast(data, req.params.id) })));
+
+router.get('/forecast/evaluation', withData((data, req) => {
+  const q = req.query;
+  if (q.from && q.to && q.to < q.from) throw new AppError(400, 'INVALID_PAYLOAD', '结束日期不能早于起始日期');
+  return forecast.evaluate(data, {
+    reservoirId: q.reservoirId || '',
+    from: q.from || '',
+    to: q.to || '',
+    allowancePct: q.allowancePct === undefined || q.allowancePct === '' ? undefined : Number(q.allowancePct),
+    topN: q.topN === undefined ? undefined : Number(q.topN),
+  });
 }));
 
 router.use((req, res, next) => {

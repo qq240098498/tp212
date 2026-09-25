@@ -8,7 +8,8 @@
     "lossPerDayWan": 1.2,
     "levelPrecision": 0.01,
     "inflowAttentionFlow": 120,
-    "inflowSeriousFlow": 260
+    "inflowSeriousFlow": 260,
+    "forecastAllowancePct": 20
   },
   "reservoirs": [
     {
@@ -1818,6 +1819,578 @@
           "at": "2026-05-05"
         }
       ]
+    }
+  ],
+  "forecasts": [
+    {
+      "id": "fc-0001",
+      "reservoirId": "res-0001",
+      "date": "2026-05-01",
+      "flow": 59,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0002",
+      "reservoirId": "res-0001",
+      "date": "2026-05-02",
+      "flow": 65,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0003",
+      "reservoirId": "res-0001",
+      "date": "2026-05-03",
+      "flow": 54,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0004",
+      "reservoirId": "res-0001",
+      "date": "2026-05-04",
+      "flow": 71,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0005",
+      "reservoirId": "res-0001",
+      "date": "2026-05-05",
+      "flow": 59,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0006",
+      "reservoirId": "res-0001",
+      "date": "2026-05-06",
+      "flow": 70,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0007",
+      "reservoirId": "res-0001",
+      "date": "2026-05-07",
+      "flow": 53,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0008",
+      "reservoirId": "res-0001",
+      "date": "2026-05-08",
+      "flow": 62,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0009",
+      "reservoirId": "res-0001",
+      "date": "2026-05-09",
+      "flow": 67,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0010",
+      "reservoirId": "res-0001",
+      "date": "2026-05-10",
+      "flow": 52,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0011",
+      "reservoirId": "res-0001",
+      "date": "2026-05-11",
+      "flow": 66,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0012",
+      "reservoirId": "res-0001",
+      "date": "2026-05-12",
+      "flow": 60,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0013",
+      "reservoirId": "res-0001",
+      "date": "2026-05-13",
+      "flow": 64,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0014",
+      "reservoirId": "res-0001",
+      "date": "2026-05-14",
+      "flow": 63,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0015",
+      "reservoirId": "res-0001",
+      "date": "2026-05-15",
+      "flow": 52,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0016",
+      "reservoirId": "res-0001",
+      "date": "2026-05-16",
+      "flow": 69,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0017",
+      "reservoirId": "res-0001",
+      "date": "2026-05-17",
+      "flow": 57,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0018",
+      "reservoirId": "res-0001",
+      "date": "2026-05-18",
+      "flow": 68,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0019",
+      "reservoirId": "res-0001",
+      "date": "2026-05-19",
+      "flow": 57,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0020",
+      "reservoirId": "res-0001",
+      "date": "2026-05-20",
+      "flow": 67,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0021",
+      "reservoirId": "res-0001",
+      "date": "2026-06-01",
+      "flow": 169,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0022",
+      "reservoirId": "res-0001",
+      "date": "2026-06-02",
+      "flow": 129,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0023",
+      "reservoirId": "res-0001",
+      "date": "2026-06-03",
+      "flow": 164,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0024",
+      "reservoirId": "res-0001",
+      "date": "2026-06-04",
+      "flow": 148,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0025",
+      "reservoirId": "res-0001",
+      "date": "2026-06-05",
+      "flow": 150,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0026",
+      "reservoirId": "res-0001",
+      "date": "2026-06-06",
+      "flow": 163,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0027",
+      "reservoirId": "res-0001",
+      "date": "2026-06-07",
+      "flow": 134,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0028",
+      "reservoirId": "res-0001",
+      "date": "2026-06-08",
+      "flow": 200,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：失手日（漏报/空报）"
+    },
+    {
+      "id": "fc-0029",
+      "reservoirId": "res-0001",
+      "date": "2026-06-09",
+      "flow": 145,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0030",
+      "reservoirId": "res-0001",
+      "date": "2026-06-10",
+      "flow": 165,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0031",
+      "reservoirId": "res-0001",
+      "date": "2026-09-08",
+      "flow": 60,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0032",
+      "reservoirId": "res-0001",
+      "date": "2026-09-09",
+      "flow": 70,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0033",
+      "reservoirId": "res-0001",
+      "date": "2026-09-10",
+      "flow": 76,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0034",
+      "reservoirId": "res-0001",
+      "date": "2026-09-11",
+      "flow": 59,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0035",
+      "reservoirId": "res-0001",
+      "date": "2026-09-12",
+      "flow": 87,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：失手日（漏报/空报）"
+    },
+    {
+      "id": "fc-0036",
+      "reservoirId": "res-0001",
+      "date": "2026-09-13",
+      "flow": 64,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0037",
+      "reservoirId": "res-0001",
+      "date": "2026-09-14",
+      "flow": 68,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0038",
+      "reservoirId": "res-0001",
+      "date": "2026-09-15",
+      "flow": 75,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0039",
+      "reservoirId": "res-0001",
+      "date": "2026-09-16",
+      "flow": 58,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0040",
+      "reservoirId": "res-0001",
+      "date": "2026-09-17",
+      "flow": 77,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0041",
+      "reservoirId": "res-0001",
+      "date": "2026-09-18",
+      "flow": 64,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0042",
+      "reservoirId": "res-0001",
+      "date": "2026-09-19",
+      "flow": 76,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0043",
+      "reservoirId": "res-0002",
+      "date": "2026-05-01",
+      "flow": 43,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0044",
+      "reservoirId": "res-0002",
+      "date": "2026-05-02",
+      "flow": 48,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0045",
+      "reservoirId": "res-0002",
+      "date": "2026-05-03",
+      "flow": 40,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0046",
+      "reservoirId": "res-0002",
+      "date": "2026-05-04",
+      "flow": 53,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0047",
+      "reservoirId": "res-0002",
+      "date": "2026-05-05",
+      "flow": 39,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0048",
+      "reservoirId": "res-0002",
+      "date": "2026-05-06",
+      "flow": 47,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0049",
+      "reservoirId": "res-0002",
+      "date": "2026-05-07",
+      "flow": 40,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0050",
+      "reservoirId": "res-0002",
+      "date": "2026-05-08",
+      "flow": 47,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0051",
+      "reservoirId": "res-0002",
+      "date": "2026-05-09",
+      "flow": 33,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：失手日（漏报/空报）"
+    },
+    {
+      "id": "fc-0052",
+      "reservoirId": "res-0002",
+      "date": "2026-05-10",
+      "flow": 36,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0053",
+      "reservoirId": "res-0002",
+      "date": "2026-05-11",
+      "flow": 46,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0054",
+      "reservoirId": "res-0002",
+      "date": "2026-05-12",
+      "flow": 42,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0055",
+      "reservoirId": "res-0002",
+      "date": "2026-05-13",
+      "flow": 45,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
+    },
+    {
+      "id": "fc-0056",
+      "reservoirId": "res-0002",
+      "date": "2026-05-14",
+      "flow": 60,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：失手日（漏报/空报）"
+    },
+    {
+      "id": "fc-0057",
+      "reservoirId": "res-0002",
+      "date": "2026-05-15",
+      "flow": 37,
+      "leadDays": 1,
+      "source": "短期预报",
+      "operator": "预报员",
+      "remark": "种子数据：确定性公式生成"
     }
   ]
 }
